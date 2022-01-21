@@ -6,9 +6,6 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/AgoraEngine/Demo+/MainScene.unity
-    guid: eadb1a9238f764e84a7034c35f016e56
-  - enabled: 1
     path: Assets/AgoraEngine/Demo+/DesktopScreenShareScene.unity
     guid: 769bdc0723fa446899e34b76d11c92d6
   m_configObjects: {}
