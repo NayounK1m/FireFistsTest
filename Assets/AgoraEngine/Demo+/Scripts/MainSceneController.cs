@@ -1,12 +1,16 @@
-﻿using UnityEngine.SceneManagement;
-using UnityEngine.UI;
+﻿using UnityEngine.UI;
 using UnityEngine;
 using agora_gaming_rtc;
+using System.Collections.Generic;
 
 //말 그대로 메인씬을 컨트롤 하는 스크립트 
 public class MainSceneController : MonoBehaviour
 {
     static IVideoChatClient app = null;
+    private IRtcEngine mRtcEngine;
+
+    readonly List<AgoraNativeBridge.RECT> WinDisplays = new List<AgoraNativeBridge.RECT>();
+    int CurrentDisplay = 0;
 
     private string HomeSceneName = "MainScene";
 
@@ -14,27 +18,15 @@ public class MainSceneController : MonoBehaviour
     // Get your own App ID at https://dashboard.agora.io/
     [Header("Agora Properties")]
     [SerializeField]
-    private string AppID = "";
-
-    [Header("UI Controls")]
-    [SerializeField]
-    private InputField channelInputField;   //채널 입력하는 input
-    [SerializeField]
-    private Text appIDText;                 //AppID text
-
+    private string AppID = "3ab0f8434af0422fbabfdd0b4e24c506";
     private bool _initialized = false;
 
-    void Awake()
-    {
-        // keep this alive across scenes
-        DontDestroyOnLoad(this.gameObject);
-        channelInputField = GameObject.Find("ChannelName").GetComponent<InputField>();  //채널 이름 받아오기
-    }
 
     void Start()
     {
         CheckAppId();
-        LoadLastChannel();
+       mRtcEngine = IRtcEngine.GetEngine(AppID);
+
     }
     
     private void CheckAppId()
@@ -42,45 +34,17 @@ public class MainSceneController : MonoBehaviour
         //조건이 false면 메시지를 호출한다.
         Debug.Assert(AppID.Length > 10, "Please fill in your AppId first on Game Controller object.");
         if (AppID.Length > 10) {
-            SetAppIdText();
+            
 	        _initialized = true; //초기화 ok
 	    }
     }
 
-    //앱 아이디를 나타내는 메서드
-    void SetAppIdText()
-    { 
-        appIDText.text = "AppID:" + AppID.Substring(0, 4) + "********" + AppID.Substring(AppID.Length - 4, 4);
-    }
-
-    //채널 이름을 가져온다
-    private void LoadLastChannel()
-    {
-        string channel = PlayerPrefs.GetString("ChannelName");  //채널 이름 가져오기
-        if (!string.IsNullOrEmpty(channel)) //비어있으면 
-        {
-            GameObject go = GameObject.Find("ChannelName");
-            InputField field = go.GetComponent<InputField>();
-
-            field.text = channel;           //이름 채워주기
-        }
-    }
-
-    //채널 이름 저장
-    private void SaveChannelName()
-    {
-        if (!string.IsNullOrEmpty(channelInputField.text))
-        {
-            PlayerPrefs.SetString("ChannelName", channelInputField.text);
-            PlayerPrefs.Save();
-        }
-    }
 
     //버튼에 따라서 씬을 찾아가는 로직
     public void HandleSceneButtonClick()
     {           
-        string sceneFileName = "DesktopScreenShareScene";                       //씬이름 초기화 
-        string channelName = channelInputField.text;                            //채널이름 초기화  
+                         //씬이름 초기화 
+        string channelName = "please";                            //채널이름 초기화  
 
         //채널이름 체크
         if (string.IsNullOrEmpty(channelName))  
@@ -101,36 +65,44 @@ public class MainSceneController : MonoBehaviour
         if (app == null) return;
 
         //조건이 null이면 종료 콜백 연결
-        app.OnViewControllerFinish += OnViewControllerFinish;
+      
         // load engine
         app.LoadEngine(AppID);
         // join channel and jump to next scene
         app.Join(channelName);
-        SaveChannelName();
-        SceneManager.sceneLoaded += OnLevelFinishedLoading; // configure GameObject after scene is loaded
-        SceneManager.LoadScene(sceneFileName, LoadSceneMode.Single);
-    }
-
-    public void OnViewControllerFinish()
-    {
-        if (!ReferenceEquals(app, null))
+       
+        var winDispInfoList = AgoraNativeBridge.GetWinDisplayInfo();
+        if (winDispInfoList != null)
         {
-            app = null; // delete app
-            SceneManager.LoadScene(HomeSceneName, LoadSceneMode.Single);    //LoadSceneMode.Single : 기존 로드된 모든 씬을 종료하고 지정한 씬을 로드한다. 
+            foreach (var dpInfo in winDispInfoList)
+            {
+                WinDisplays.Add(dpInfo.MonitorInfo.monitor);
+            }
         }
-        Destroy(gameObject);
-    }
 
-    // configure GameObject after scene is loaded
-    public void OnLevelFinishedLoading(Scene scene, LoadSceneMode mode)
-    {
-        if (!ReferenceEquals(app, null))
+        Button button = GameObject.Find("ShareDisplayButton").GetComponent<Button>();
+        if (button != null)
         {
-            app.OnSceneLoaded(); // call this after scene is loaded
+            button.onClick.AddListener(ShareDisplayScreen);
         }
-        SceneManager.sceneLoaded -= OnLevelFinishedLoading;
-    }
 
+        button = GameObject.Find("StopShareButton").GetComponent<Button>();
+        if (button != null)
+        {
+            button.onClick.AddListener(() => { mRtcEngine.StopScreenCapture(); });
+        }
+
+        GameObject quad = GameObject.Find("DisplayPlane"); //화면공유용 캔버스 따로 만들어서 여기다 넣기.
+        if (ReferenceEquals(quad, null))
+        {
+            Debug.Log("Error: failed to find DisplayPlane");
+            return;
+        }
+        else
+        {
+            quad.AddComponent<VideoSurface>();
+        }
+    }
     void OnApplicationPause(bool paused)
     {
         if (!ReferenceEquals(app, null))
@@ -158,5 +130,48 @@ public class MainSceneController : MonoBehaviour
 
         int cnt = deviceManager.GetVideoDeviceCount();
         Debug.Log("Device count =============== " + cnt);
+    }
+
+     int displayID0or1 = 0;
+    void ShareDisplayScreen()
+    {
+        ScreenCaptureParameters sparams = new ScreenCaptureParameters
+        {
+            captureMouseCursor = true, //마우스커서까지 화면공유에 포함시키기
+            frameRate = 15             //프레임 딜레이
+        };
+
+        mRtcEngine.StopScreenCapture(); //스크린캡처 중단.
+
+        ShareWinDisplayScreen(CurrentDisplay); //송출
+        CurrentDisplay = (CurrentDisplay + 1) % WinDisplays.Count;
+    }
+
+    void ShareWinDisplayScreen(int index)
+    {
+        var screenRect = new Rectangle
+        {
+            x = WinDisplays[index].left,
+            y = WinDisplays[index].top,
+            width = WinDisplays[index].right - WinDisplays[index].left,
+            height = WinDisplays[index].bottom - WinDisplays[index].top
+        };
+        Debug.Log(string.Format(">>>>> Start sharing display {0}: {1} {2} {3} {4}", index, screenRect.x,
+            screenRect.y, screenRect.width, screenRect.height));
+        var ret = mRtcEngine.StartScreenCaptureByScreenRect(screenRect,
+            new Rectangle { x = 0, y = 0, width = 0, height = 0 }, default(ScreenCaptureParameters));
+    }
+
+    void TestRectCrop(int order)
+    {
+        // Assuming you have two display monitors, each of 1920x1080, position left to right:
+        Rectangle screenRect = new Rectangle() { x = 0, y = 1080, width = 1920 * 2, height = 1080 };
+        Rectangle regionRect = new Rectangle() { x = order * 1920, y = 1080, width = 1920, height = 1080 };
+
+        int rc = mRtcEngine.StartScreenCaptureByScreenRect(screenRect,
+            regionRect,
+            default(ScreenCaptureParameters)
+            );
+        if (rc != 0) Debug.LogWarning("rc = " + rc);
     }
 }
