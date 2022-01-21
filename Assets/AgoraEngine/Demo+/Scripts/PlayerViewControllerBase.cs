@@ -76,7 +76,6 @@ public class PlayerViewControllerBase : IVideoChatClient
         if (go != null)
         {
             UserVideoDict[0] = go.AddComponent<VideoSurface>(); //컴포넌트에 캠 동기화 스크립트 추가
-            go.AddComponent<UIElementDragger>();                //UI 드래그앤드롭 속성 부여
         }
         //떠나기 버튼
         Button button = GameObject.Find("LeaveButton").GetComponent<Button>();
@@ -291,8 +290,6 @@ public class PlayerViewControllerBase : IVideoChatClient
         // to be renderered onto
         RawImage image = go.AddComponent<RawImage>(); //화면 송출될 수 있게 컴포넌트 추가
         image.rectTransform.sizeDelta = new Vector2(1, 1);// 스케일
-
-        go.AddComponent<UIElementDragger>(); //드래그 앤 드롭 속성 추가
 
         //유저의 캠화면이 담긴 캔버스를 이미 만들어져있는 캔버스의 자식으로 설정
         GameObject canvas = GameObject.Find("Canvas"); 

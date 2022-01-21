@@ -9,7 +9,7 @@ public class DesktopScreenShare : PlayerViewControllerBase
     int CurrentDisplay = 0;
 
     //UI 설정
-    protected override void SetupUI()
+    public new void SetupUI()
     {
         base.SetupUI();
 
@@ -49,12 +49,12 @@ public class DesktopScreenShare : PlayerViewControllerBase
 
     //화면공유.
     int displayID0or1 = 0;
-    void ShareDisplayScreen()
+    public void ShareDisplayScreen()
     {
         ScreenCaptureParameters sparams = new ScreenCaptureParameters
         {
-            captureMouseCursor = true, //마우스커서까지 화면공유에 포함시키기
-            frameRate = 15             //프레임 딜레이
+            captureMouseCursor = true,  //마우스커서까지 화면공유에 포함시키기
+            frameRate = 15              //프레임 딜레이
         };
 
         mRtcEngine.StopScreenCapture(); //스크린캡처 중단.
@@ -63,7 +63,7 @@ public class DesktopScreenShare : PlayerViewControllerBase
         CurrentDisplay = (CurrentDisplay + 1) % WinDisplays.Count;
     }
 
-    void ShareWinDisplayScreen(int index)
+    public void ShareWinDisplayScreen(int index)
     {
         var screenRect = new Rectangle
         {
@@ -78,7 +78,8 @@ public class DesktopScreenShare : PlayerViewControllerBase
             new Rectangle { x = 0, y = 0, width = 0, height = 0 }, default(ScreenCaptureParameters));
     }
 
-    void TestRectCrop(int order)
+    //비율을 위해서 필요하기는 하지만 어디서 참조 되는지를 모르겠다. 
+    public void TestRectCrop(int order)
     {
         // Assuming you have two display monitors, each of 1920x1080, position left to right:
         Rectangle screenRect = new Rectangle() { x = 0, y = 1080, width = 1920 * 2, height = 1080 };
